@@ -15,14 +15,10 @@ from fsl.utils.path import PathError
 screen = sys.argv[1]
 batch = sys.argv[2]
 SUB = sys.argv[3]
-roi_choice = sys.argv[4]
 
 fa_path = f"data/jk232/optic_bids_{screen}_{batch}/derivatives/afq/sub-{SUB}/sub-{SUB}_dwi_model-DKI_FA.nii.gz"
 fa_img = nib.load(fa_path)
-if "gcalc" in roi_choice:
-    reg_template = nib.load("data/jk232/AFQ_data/subroi/G_Calc_1_R.nii")
-else:
-    reg_template = nib.load(f"data/jk232/AFQ_data/subroi/eccen_roi/1/fov_R.nii")
+reg_template = nib.load(f"data/jk232/AFQ_data/subroi/eccen_roi/3/fov_R.nii")
 try:
     nearest_warp = f"data/jk232/optic_bids_{screen}_{batch}/derivatives/TBSS/sub-{SUB}/sub-{SUB}_dwi_MNI_to_dti_FA_warp.nii.gz"
     nearest_space = f"data/jk232/optic_bids_{screen}_{batch}/derivatives/TBSS/sub-{SUB}/sub-{SUB}_dwi_dti_FA_to_MNI.nii.gz"
@@ -40,36 +36,10 @@ except PathError:
         reg_template,
         prealign=reg_prealign_inv)
 
-def get_rois(side):
-    fov = nib.load(f"data/jk232/AFQ_data/subroi/eccen_roi/3/fov_{side}.nii")
-    mac = nib.load(f"data/jk232/AFQ_data/subroi/eccen_roi/3/mac_{side}.nii")
-    perip = nib.load(f"data/jk232/AFQ_data/subroi/eccen_roi/3/perip_{side}.nii")
-    return fov, mac, perip
-
-num_dict = {"one": 1, "two": 2, "three": 3}
-
-startpoint = nib.Nifti1Image(np.ones(fa_img.get_fdata().shape), fa_img.affine)
 for side in ["R", "L"]:
     bundle_dict = {}
-    if roi_choice == "gcalc":
-        for i in range(2):
-            if i == 0:
-                this_roi1 = nib.load(f"data/jk232/AFQ_data/subroi/G_Calc_1_{side}.nii")
-                this_roi2 = nib.load(f"data/jk232/AFQ_data/subroi/G_Calc_2_{side}.nii")
-                this_roi = nib.Nifti1Image(np.logical_or(this_roi1.get_fdata().astype(bool), this_roi2.get_fdata().astype(bool)).astype(np.float32), this_roi1.affine)
-            else:
-                this_roi = nib.load(f"data/jk232/AFQ_data/subroi/G_Calc_3_{side}.nii")
-            bundle_dict[f"gcalc{i}_{side}"] = {
-                'include': [this_roi, this_roi],
-                "start": startpoint, "end": this_roi,
-                'cross_midline': False, 'prob_map': this_roi.get_fdata(), 'uid': i}
-    elif roi_choice in ["three"]:
-        number = num_dict[roi_choice]
-        for roi_name, roi, i in zip(["fov", "mac", "perip"], get_rois(number, side), [0, 1, 2]):
-            bundle_dict[f"{roi_name}_{number}_{side}"] = {
-                'include': [roi, roi],
-                "start": startpoint, "end": roi,
-                'cross_midline': False, 'uid': i}
+    for roi_name in ["fov", "mac", "perip"]:
+        bundle_dict[f"{roi_name}_3_{side}"] = {"end": f"data/jk232/AFQ_data/subroi/eccen_roi/3/{roi_name}_{side}.nii"}
     
     trk = nib.streamlines.load(f"data/jk232/optic_bids_{screen}_{batch}/derivatives/afq/sub-{SUB}/clean_bundles/sub-{SUB}_dwi_space-RASMM_model-DTI_desc-det-AFQ-{side}_OR_tractography.trk")
     if len(trk.streamlines) == 0:
